@@ -1,0 +1,4 @@
+{
+  "/blend/[id]/page": "app/blend/[id]/page.js",
+  "/page": "app/page.js"
+}

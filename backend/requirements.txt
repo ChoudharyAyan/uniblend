@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+spotipy
+ytmusicapi
+python-dotenv
+httpx
+fuzzywuzzy
+python-Levenshtein
+pydantic
+requests
+itsdangerous
