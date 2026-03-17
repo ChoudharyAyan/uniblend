@@ -71,6 +71,8 @@ class UserProfile:
     top_tracks: List[str] = field(default_factory=list)   # "artist|||title"
     listening_diversity: float = 0.5
     dominant_mood: str = "balanced"
+    has_real_audio: bool = False   # True only when real audio_features were present
+    has_real_genres: bool = False  # True only when genre tags were present
 
 
 @dataclass
@@ -203,6 +205,17 @@ def build_user_profile(tracks: List[Dict]) -> UserProfile:
 
     # --- Genre vector ---
     raw: Dict[str, float] = {}
+    tracks_with_genres = 0
+    tracks_with_audio = 0
+    for idx, track in enumerate(tracks):
+        if track.get("genres"):
+            tracks_with_genres += 1
+        if track.get("audio_features") and "energy" in (track.get("audio_features") or {}):
+            tracks_with_audio += 1
+
+    has_real_genres = tracks_with_genres >= max(1, len(tracks) * 0.1)
+    has_real_audio = tracks_with_audio >= max(1, len(tracks) * 0.1)
+
     for idx, track in enumerate(tracks):
         w = _position_weight(idx)
         genres = track.get("genres") or []
@@ -285,6 +298,8 @@ def build_user_profile(tracks: List[Dict]) -> UserProfile:
         top_tracks=top_tracks,
         listening_diversity=diversity,
         dominant_mood=mood,
+        has_real_audio=has_real_audio,
+        has_real_genres=has_real_genres,
     )
 
 
@@ -305,9 +320,7 @@ def calculate_blend(
     u2 = user2_profile or build_user_profile(user2_tracks)
 
     # Stage 2 — Genre DNA
-    u1_has_genres = len(u1.genre_vector) > 0
-    u2_has_genres = len(u2.genre_vector) > 0
-    both_have_genres = u1_has_genres and u2_has_genres
+    both_have_genres = u1.has_real_genres and u2.has_real_genres
 
     if both_have_genres:
         genre_jaccard = _weighted_jaccard(u1.genre_vector, u2.genre_vector)
@@ -322,12 +335,11 @@ def calculate_blend(
                             family_bonus = min(family_bonus + 0.03, 0.15)
         genre_score = min(1.0, genre_jaccard + family_bonus)
     else:
-        # One side has no genre data (e.g. YouTube liked videos fallback)
-        # Don't penalise — give neutral score and redistribute its weight
-        genre_score = 0.5
+        genre_score = 0.0  # excluded from weight entirely below
 
-    # Stage 3 — Audio vibe
-    audio_score = _cosine(u1.audio_vector, u2.audio_vector)
+    # Stage 3 — Audio vibe (only meaningful when both sides have real features)
+    both_have_audio = u1.has_real_audio and u2.has_real_audio
+    audio_score = _cosine(u1.audio_vector, u2.audio_vector) if both_have_audio else 0.0
 
     # Stage 4 — Social graph (fuzzy artist matching via normalised names)
     set_a1 = set(u1.top_artists)
@@ -344,12 +356,11 @@ def calculate_blend(
 
     social_score = 0.6 * artist_jaccard + 0.4 * track_jaccard
 
-    # Stage 5 — Final score (adaptive weights when genre data is sparse)
-    if both_have_genres:
-        genre_w, audio_w, social_w = 0.35, 0.35, 0.30
-    else:
-        # Redistribute genre weight to audio and social
-        genre_w, audio_w, social_w = 0.15, 0.45, 0.40
+    # Stage 5 — Adaptive weights based on data availability
+    # Only include a component's weight when that component has real signal
+    genre_w  = 0.35 if both_have_genres else 0.0
+    audio_w  = 0.35 if both_have_audio  else 0.0
+    social_w = 1.0 - genre_w - audio_w   # social absorbs all unused weight
 
     raw = genre_w * genre_score + audio_w * audio_score + social_w * social_score
     diversity_penalty = abs(u1.listening_diversity - u2.listening_diversity) * 0.08
