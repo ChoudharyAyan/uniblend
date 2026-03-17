@@ -9,9 +9,12 @@ from routers import spotify, ytmusic, blend
 
 app = FastAPI(title="UniBlend API", version="0.1.0")
 
+_raw = os.getenv("FRONTEND_URL", "http://localhost:3000")
+_origins = [o.strip() for o in _raw.split(",")]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[os.getenv("FRONTEND_URL", "http://localhost:3000")],
+    allow_origins=_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
