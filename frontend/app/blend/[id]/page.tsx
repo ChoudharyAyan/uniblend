@@ -231,74 +231,105 @@ export default function BlendRoomPage() {
   // ── Done ───────────────────────────────────────────────────────────────────
   if (status === "done" && result) {
     const { stats, matches, spotify_only, yt_only, blend_analysis } = result;
-    const sp_name = result.spotify_display_name ?? serverStatus.spotify_display_name ?? "Friend 1";
-    const yt_name = result.ytmusic_display_name ?? serverStatus.ytmusic_display_name ?? "Friend 2";
-    const tabs: { key: Tab; label: string; count: number; color: string }[] = [
-      { key: "matches", label: "In Common", count: stats.matched, color: "violet" },
-      { key: "spotify_only", label: "Spotify only", count: stats.spotify_only, color: "green" },
-      { key: "yt_only", label: "YouTube only", count: stats.yt_only, color: "red" },
+    const spFull = result.spotify_display_name ?? serverStatus.spotify_display_name ?? "Friend 1";
+    const ytFull = result.ytmusic_display_name ?? serverStatus.ytmusic_display_name ?? "Friend 2";
+    // First names only
+    const sp1 = spFull.split(" ")[0];
+    const yt1 = ytFull.split(" ")[0];
+
+    const pct = blend_analysis ? Math.round(blend_analysis.match_percentage) : null;
+
+    const tagline = pct === null ? "" :
+      pct >= 85 ? "If you're not best friends already, you should be." :
+      pct >= 70 ? "You two were made for the same playlist." :
+      pct >= 55 ? "More in common than you think." :
+      pct >= 40 ? "Different beats, but something's definitely there." :
+      pct >= 25 ? "Opposites attract — and your music proves it." :
+                  "Worlds apart on paper, yet here you are.";
+
+    const topMatch = matches[0] ?? null;
+
+    const tabs: { key: Tab; label: string; count: number }[] = [
+      { key: "matches", label: "In Common", count: stats.matched },
+      { key: "spotify_only", label: "Spotify only", count: stats.spotify_only },
+      { key: "yt_only", label: "YouTube only", count: stats.yt_only },
     ];
 
     return (
       <div className="min-h-screen bg-[#0a0a0a] text-white">
-        <div className="max-w-3xl mx-auto px-6 py-12">
-          <button onClick={() => router.push("/")} className="text-xs text-gray-600 hover:text-gray-400 mb-10 inline-flex items-center gap-1.5 transition">
+        <div className="max-w-2xl mx-auto px-6 py-10">
+          <button onClick={() => router.push("/")} className="text-xs text-gray-600 hover:text-gray-400 mb-8 inline-flex items-center gap-1.5 transition">
             ← New blend
           </button>
 
-          {/* Header */}
-          <div className="mb-10">
-            <div className="flex flex-col sm:flex-row items-center gap-6">
-              {/* Illustration */}
-              <div className="shrink-0">
-                <FriendsIllustration />
-              </div>
-              {/* Title block */}
-              <div className="flex-1 min-w-0 text-center sm:text-left">
-                <div className="flex items-center justify-center sm:justify-start gap-2 mb-3">
-                  <SpotifyLogo size={22} />
-                  <div className="w-6 h-px bg-gradient-to-r from-green-500/40 via-violet-500/50 to-red-500/40" />
-                  <YTMusicLogo size={22} />
-                </div>
-                <h1 className="text-2xl sm:text-3xl font-bold leading-tight">
-                  <span className="text-green-400">{sp_name}</span>
-                  <span className="text-gray-500 mx-2 font-light">&lt;&gt;</span>
-                  <span className="text-red-400">{yt_name}</span>
-                  <span className="text-white">'s Blend</span>
-                </h1>
-                <p className="text-gray-500 text-sm mt-2">
-                  {stats.total_spotify} Spotify tracks · {stats.total_yt} YouTube Music tracks
-                </p>
-              </div>
+          {/* ── Hero ─────────────────────────────────────────────────────── */}
+          <div className="text-center mb-10">
+            <div className="flex justify-center mb-6">
+              <FriendsIllustration />
+            </div>
+
+            {/* Names */}
+            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mb-2">
+              <span className="text-green-400">{sp1}</span>
+              <span className="text-gray-500 mx-3 font-light">+</span>
+              <span className="text-red-400">{yt1}</span>
+            </h1>
+
+            {/* Match % */}
+            {pct !== null && (
+              <p className="text-violet-400 font-semibold text-lg mb-3">
+                {pct}% taste match
+              </p>
+            )}
+
+            {/* Tagline */}
+            <p className="text-gray-500 text-sm italic max-w-xs mx-auto leading-relaxed">
+              {tagline}
+            </p>
+
+            {/* Platform logos */}
+            <div className="flex items-center justify-center gap-3 mt-5">
+              <SpotifyLogo size={20} />
+              <div className="w-12 h-px bg-gradient-to-r from-green-500/30 via-violet-500/40 to-red-500/30" />
+              <YTMusicLogo size={20} />
             </div>
           </div>
 
-          {/* Blend Score (algorithm result) */}
-          {blend_analysis && (
-            <div className="mb-8 rounded-2xl bg-[#111] border border-white/5 p-6">
-              <div className="flex items-center gap-6 mb-4">
-                <div className="text-center shrink-0">
-                  <div className="text-5xl font-bold text-violet-300 tabular-nums">
-                    {Math.round(blend_analysis.match_percentage)}%
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">{blend_analysis.match_label}</div>
-                </div>
+          {/* ── Song that brings you together ────────────────────────────── */}
+          {topMatch && (
+            <div className="mb-6 rounded-2xl bg-[#111] border border-white/5 p-5 text-center">
+              <p className="text-xs text-gray-600 mb-3">The song that brings you together</p>
+              <div className="flex items-center gap-4 text-left">
+                {topMatch.spotify.thumbnail && (
+                  <img src={topMatch.spotify.thumbnail} alt="" className="w-14 h-14 rounded-xl object-cover shrink-0" />
+                )}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-300 leading-relaxed">{blend_analysis.vibe_summary}</p>
-                  {blend_analysis.dominant_user !== "equal" && (
-                    <p className="text-xs text-gray-600 mt-2">
-                      Leaning more{" "}
-                      <span className={blend_analysis.dominant_user === "user1" ? "text-green-400" : "text-red-400"}>
-                        {blend_analysis.dominant_user === "user1" ? "Spotify" : "YouTube Music"}
-                      </span>
-                    </p>
-                  )}
+                  <p className="font-semibold text-white truncate">"{topMatch.spotify.title}"</p>
+                  <p className="text-sm text-gray-400 truncate mt-0.5">{topMatch.spotify.artist}</p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <a href={topMatch.spotify.url} target="_blank" rel="noopener noreferrer"
+                    className="text-xs px-2.5 py-1 rounded-lg bg-[#1ED760]/10 text-[#1ED760] hover:bg-[#1ED760]/20 transition font-medium">
+                    Spotify
+                  </a>
+                  <a href={topMatch.ytmusic.url} target="_blank" rel="noopener noreferrer"
+                    className="text-xs px-2.5 py-1 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition font-medium">
+                    YT Music
+                  </a>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ── Vibe / genres / artists ──────────────────────────────────── */}
+          {blend_analysis && (
+            <div className="mb-6 rounded-2xl bg-[#111] border border-white/5 p-5 space-y-4">
+              {/* Vibe summary */}
+              <p className="text-sm text-gray-300 leading-relaxed">{blend_analysis.vibe_summary}</p>
 
               {/* Shared genres */}
               {blend_analysis.shared_genres.length > 0 && (
-                <div className="mb-4">
+                <div>
                   <p className="text-xs text-gray-600 mb-2">Shared genres</p>
                   <div className="flex flex-wrap gap-2">
                     {blend_analysis.shared_genres.map((g, i) => (
@@ -310,7 +341,7 @@ export default function BlendRoomPage() {
                 </div>
               )}
 
-              {/* Top common artists */}
+              {/* Mutual favourites */}
               {blend_analysis.top_common_artists.length > 0 && (
                 <div>
                   <p className="text-xs text-gray-600 mb-2">Mutual favourites</p>
@@ -326,46 +357,43 @@ export default function BlendRoomPage() {
             </div>
           )}
 
-          {/* Stats */}
-          <div className="grid grid-cols-3 gap-3 mb-8">
-            <div className="rounded-2xl bg-violet-950/40 border border-violet-900/50 p-5 text-center">
-              <div className="text-3xl font-bold text-violet-300 mb-1">{stats.matched}</div>
+          {/* ── Stats ────────────────────────────────────────────────────── */}
+          <div className="grid grid-cols-3 gap-3 mb-6">
+            <div className="rounded-2xl bg-violet-950/40 border border-violet-900/50 p-4 text-center">
+              <div className="text-2xl font-bold text-violet-300 mb-1">{stats.matched}</div>
               <div className="text-xs text-gray-500">In common</div>
             </div>
-            <div className="rounded-2xl bg-[#111] border border-white/5 p-5 text-center">
-              <div className="text-3xl font-bold text-green-400 mb-1">{stats.spotify_only}</div>
+            <div className="rounded-2xl bg-[#111] border border-white/5 p-4 text-center">
+              <div className="text-2xl font-bold text-green-400 mb-1">{stats.spotify_only}</div>
               <div className="text-xs text-gray-500">Spotify only</div>
             </div>
-            <div className="rounded-2xl bg-[#111] border border-white/5 p-5 text-center">
-              <div className="text-3xl font-bold text-red-400 mb-1">{stats.yt_only}</div>
+            <div className="rounded-2xl bg-[#111] border border-white/5 p-4 text-center">
+              <div className="text-2xl font-bold text-red-400 mb-1">{stats.yt_only}</div>
               <div className="text-xs text-gray-500">YouTube only</div>
             </div>
           </div>
 
-          {/* Tabs */}
-          <div className="flex gap-1 mb-6 p-1 bg-white/5 rounded-xl w-fit">
+          {/* ── Tabs + tracks ────────────────────────────────────────────── */}
+          <div className="flex gap-1 mb-4 p-1 bg-white/5 rounded-xl w-fit">
             {tabs.map((t) => (
               <button key={t.key} onClick={() => setTab(t.key)}
                 className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                  tab === t.key
-                    ? "bg-white/10 text-white shadow-sm"
-                    : "text-gray-500 hover:text-gray-300"
+                  tab === t.key ? "bg-white/10 text-white" : "text-gray-500 hover:text-gray-300"
                 }`}>
                 {t.label}
-                <span className="ml-2 text-xs opacity-60">{t.count}</span>
+                <span className="ml-1.5 text-xs opacity-50">{t.count}</span>
               </button>
             ))}
           </div>
 
-          {/* Track list */}
           <div className="space-y-1.5">
             {tab === "matches" && matches.map((m, i) => <MatchCard key={i} match={m} />)}
             {tab === "spotify_only" && spotify_only.map((t, i) => <TrackCard key={i} track={t} />)}
             {tab === "yt_only" && yt_only.map((t, i) => <TrackCard key={i} track={t} />)}
             {tab === "matches" && matches.length === 0 && (
-              <div className="text-center py-16 text-gray-600">
-                <p className="text-4xl mb-4">🎵</p>
-                <p>No matches found — very different tastes!</p>
+              <div className="text-center py-14 text-gray-600">
+                <p className="mb-2 text-sm">No exact matches — very different catalogs!</p>
+                <p className="text-xs text-gray-700">Check the vibe score above — you might share more than you think.</p>
               </div>
             )}
           </div>
