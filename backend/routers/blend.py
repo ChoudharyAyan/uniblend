@@ -241,16 +241,50 @@ async def _fetch_yt_tracks(session_id: str) -> list:
                 if t["id"] not in raw:
                     raw[t["id"]] = t
 
-        # Liked YouTube videos skipped — videoCategoryId filter is unreliable
-        # and pulls non-music content. LM playlist + user playlists are sufficient.
-
-    # ytmusicapi (history/liked) requires TV_EMBEDDED OAuth client type,
-    # incompatible with standard web app credentials — skipped for now.
+        # ── 3. Fallback: liked YouTube videos (for users with no YT Music data) ─
+        # Only used if primary sources returned nothing.
+        if not raw:
+            next_page_token = None
+            fetched = 0
+            while fetched < 200:
+                params: dict = {"part": "snippet", "myRating": "like", "maxResults": 50}
+                if next_page_token:
+                    params["pageToken"] = next_page_token
+                resp = await client.get(
+                    "https://www.googleapis.com/youtube/v3/videos",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                    params=params,
+                )
+                data = resp.json()
+                if "error" in data:
+                    break
+                for item in data.get("items", []):
+                    vid = item.get("id", "")
+                    snippet = item.get("snippet", {})
+                    title = snippet.get("title", "")
+                    if not vid or title in ("", "Deleted video", "Private video"):
+                        continue
+                    thumbs = snippet.get("thumbnails", {})
+                    thumb = (thumbs.get("medium") or thumbs.get("default") or {}).get("url", "")
+                    artist = snippet.get("channelTitle", "").replace(" - Topic", "").strip()
+                    raw[vid] = {
+                        "id": vid,
+                        "title": title,
+                        "artist": artist,
+                        "album": "",
+                        "thumbnail": thumb,
+                        "url": f"https://music.youtube.com/watch?v={vid}",
+                        "source": "ytmusic",
+                    }
+                    fetched += 1
+                next_page_token = data.get("nextPageToken")
+                if not next_page_token:
+                    break
 
     if not raw:
         raise HTTPException(
             status_code=502,
-            detail="Could not retrieve any YouTube Music tracks. Make sure you have liked songs or playlists.",
+            detail="No YouTube Music data found. Please like some songs or create a playlist on YouTube Music first.",
         )
 
     return list(raw.values())
