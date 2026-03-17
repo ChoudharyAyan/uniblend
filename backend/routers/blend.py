@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from store import spotify_tokens, ytmusic_tokens, blend_sessions, prune_blend_sessions
 from utils.matcher import match_tracks
 from blend.algorithm import calculate_blend
+from db import persist_blend_result, load_blend_session
 
 load_dotenv()
 
@@ -367,9 +368,11 @@ async def _compute_blend(blend_id: str) -> None:
             },
         }
         session["status"] = "done"
+        persist_blend_result(session)   # save to Supabase (no-op if not configured)
     except Exception as e:
         session["status"] = "error"
         session["error"] = str(e)
+        persist_blend_result(session)
 
 
 @router.post("/blend/session")
@@ -395,8 +398,14 @@ def create_blend_session():
 async def get_blend_session(blend_id: str, background_tasks: BackgroundTasks):
     """Poll blend session status. Triggers computation when both platforms connected."""
     session = blend_sessions.get(blend_id)
+
+    # Not in memory — try loading from Supabase (handles Railway restarts)
     if not session:
-        raise HTTPException(status_code=404, detail="Blend session not found")
+        session = load_blend_session(blend_id)
+        if session:
+            blend_sessions[blend_id] = session  # restore to memory cache
+        else:
+            raise HTTPException(status_code=404, detail="Blend session not found")
 
     # Trigger background computation once both sessions are present
     if (
