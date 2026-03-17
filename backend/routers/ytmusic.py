@@ -77,7 +77,7 @@ async def google_callback(code: str = Query(...), state: str = Query(...)):
     if blend_id and blend_id in blend_sessions:
         blend_sessions[blend_id]["ytmusic_session"] = session_id
 
-    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").split(",")[0].strip()
     if blend_id:
         return RedirectResponse(url=f"{frontend_url}/blend/{blend_id}?ytmusic_session={session_id}")
     return RedirectResponse(url=f"{frontend_url}?ytmusic_session={session_id}")
