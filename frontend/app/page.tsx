@@ -6,12 +6,8 @@ import api from "@/lib/api";
 
 function SpotifyMark({ size = 32 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 168 168" aria-label="Spotify">
-      <circle cx="84" cy="84" r="84" fill="#1ED760" />
-      <path
-        fill="white"
-        d="M119.3 113.6c-1.9 3.1-5.9 4-9 2.1-24.6-15-55.6-18.4-92.1-10.1-3.5.8-7-1.4-7.8-4.9-.8-3.5 1.4-7 4.9-7.8 39.9-9.1 74.2-5.2 101.9 11.7 3.1 1.9 4 5.9 2.1 9zm11.3-24.1c-2.4 3.8-7.4 5-11.2 2.6-28.2-17.3-71.2-22.3-104.6-12.2-4.3 1.3-8.9-1.1-10.3-5.5-1.3-4.3 1.1-8.9 5.5-10.3 38.1-11.6 85.5-5.9 117.9 13.9 3.8 2.4 5 7.4 2.7 11.5zm1-24.5c-33.8-20.1-89.7-21.9-122-12.1-5.2 1.6-10.7-1.4-12.2-6.6-1.6-5.2 1.4-10.7 6.6-12.2 37.1-11.3 98.8-9.1 137.8 14 4.6 2.7 6.1 8.7 3.4 13.3-2.8 4.6-8.7 6.1-13.6 3.6z"
-      />
+    <svg width={size} height={size} viewBox="0 0 496 512" aria-label="Spotify">
+      <path fill="#1ED760" d="M248 8C111.1 8 0 119.1 0 256s111.1 248 248 248 248-111.1 248-248S384.9 8 248 8zm100.7 364.9c-4.2 0-6.8-1.3-10.7-3.6-62.4-37.6-135-39.2-206.7-24.5-3.9 1-9 2.6-11.9 2.6-9.7 0-15.8-7.7-15.8-15.8 0-10.3 6.1-15.2 13.6-16.8 81.9-18.1 165.6-16.5 237 26.2 6.1 3.9 9.7 7.4 9.7 16.5s-7.1 15.4-15.2 15.4zm26.9-65.6c-5.2 0-8.7-2.3-12.3-4.2-62.5-37-155.7-51.9-238.6-29.4-4.8 1.3-7.4 2.6-11.9 2.6-10.7 0-19.4-8.7-19.4-19.4s5.2-17.8 15.5-20.7c27.8-7.8 56.2-13.6 97.8-13.6 64.9 0 127.6 16.1 177 45.5 8.1 4.5 11.3 11 11.3 19.4 0 10.7-8.7 19.8-19.4 19.8zm31-76.2c-5.2 0-8.4-1.3-12.9-3.9-71.2-42.5-198.5-52.7-280.9-29.7-3.9 1-8.1 2.6-12.9 2.6-13.2 0-23.3-10.3-23.3-23.6 0-13.6 8.4-21.3 17.4-23.9 35.2-10.3 74.6-15.2 117.5-15.2 73 0 149.5 15.2 205.4 47.8 7.8 4.5 12.9 10.7 12.9 22.6 0 13.2-10.3 23.3-23.2 23.3z"/>
     </svg>
   );
 }
@@ -46,30 +42,26 @@ export default function HomePage() {
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-24">
 
         {/* Platform logos */}
-        <div className="flex items-center gap-4 mb-12">
-          <div className="rounded-2xl p-1 shadow-lg shadow-green-900/30">
-            <SpotifyMark size={48} />
-          </div>
+        <div className="flex items-center gap-4 mb-8">
+          <SpotifyMark size={44} />
           <div className="w-8 h-px bg-gradient-to-r from-green-500/40 via-gray-600 to-red-500/40" />
-          <div className="rounded-2xl p-1 shadow-lg shadow-red-900/30">
-            <YTMusicMark size={48} />
-          </div>
+          <YTMusicMark size={44} />
         </div>
 
         {/* Hero text */}
-        <h1 className="text-6xl sm:text-7xl font-bold tracking-tight text-center mb-4">
+        <h1 className="text-4xl sm:text-6xl font-bold tracking-tight text-center mb-3">
           Uni<span className="text-violet-400">Blend</span>
         </h1>
-        <p className="text-xl sm:text-2xl text-gray-400 font-light text-center mb-3">
+        <p className="text-base sm:text-xl text-gray-400 font-light text-center mb-2">
           Two friends. Two platforms. One shared taste.
         </p>
-        <p className="text-gray-600 text-center max-w-sm leading-relaxed mb-16">
-          One of you uses Spotify, the other YouTube Music?
+        <p className="text-gray-600 text-sm text-center max-w-sm leading-relaxed mb-10">
+          One on Spotify, the other on YouTube Music?
           Find out what you both love.
         </p>
 
         {/* Steps */}
-        <div className="w-full max-w-3xl mb-16">
+        <div className="w-full max-w-3xl mb-10">
           <div className="grid grid-cols-3 gap-px bg-white/5 rounded-2xl overflow-hidden border border-white/5">
             {[
               {

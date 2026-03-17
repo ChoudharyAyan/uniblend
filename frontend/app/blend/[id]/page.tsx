@@ -52,12 +52,8 @@ interface SessionStatus {
 
 function SpotifyLogo({ size = 56 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 168 168" aria-label="Spotify">
-      <circle cx="84" cy="84" r="84" fill="#1ED760" />
-      <path
-        fill="white"
-        d="M119.3 113.6c-1.9 3.1-5.9 4-9 2.1-24.6-15-55.6-18.4-92.1-10.1-3.5.8-7-1.4-7.8-4.9-.8-3.5 1.4-7 4.9-7.8 39.9-9.1 74.2-5.2 101.9 11.7 3.1 1.9 4 5.9 2.1 9zm11.3-24.1c-2.4 3.8-7.4 5-11.2 2.6-28.2-17.3-71.2-22.3-104.6-12.2-4.3 1.3-8.9-1.1-10.3-5.5-1.3-4.3 1.1-8.9 5.5-10.3 38.1-11.6 85.5-5.9 117.9 13.9 3.8 2.4 5 7.4 2.7 11.5zm1-24.5c-33.8-20.1-89.7-21.9-122-12.1-5.2 1.6-10.7-1.4-12.2-6.6-1.6-5.2 1.4-10.7 6.6-12.2 37.1-11.3 98.8-9.1 137.8 14 4.6 2.7 6.1 8.7 3.4 13.3-2.8 4.6-8.7 6.1-13.6 3.6z"
-      />
+    <svg width={size} height={size} viewBox="0 0 496 512" aria-label="Spotify">
+      <path fill="#1ED760" d="M248 8C111.1 8 0 119.1 0 256s111.1 248 248 248 248-111.1 248-248S384.9 8 248 8zm100.7 364.9c-4.2 0-6.8-1.3-10.7-3.6-62.4-37.6-135-39.2-206.7-24.5-3.9 1-9 2.6-11.9 2.6-9.7 0-15.8-7.7-15.8-15.8 0-10.3 6.1-15.2 13.6-16.8 81.9-18.1 165.6-16.5 237 26.2 6.1 3.9 9.7 7.4 9.7 16.5s-7.1 15.4-15.2 15.4zm26.9-65.6c-5.2 0-8.7-2.3-12.3-4.2-62.5-37-155.7-51.9-238.6-29.4-4.8 1.3-7.4 2.6-11.9 2.6-10.7 0-19.4-8.7-19.4-19.4s5.2-17.8 15.5-20.7c27.8-7.8 56.2-13.6 97.8-13.6 64.9 0 127.6 16.1 177 45.5 8.1 4.5 11.3 11 11.3 19.4 0 10.7-8.7 19.8-19.4 19.8zm31-76.2c-5.2 0-8.4-1.3-12.9-3.9-71.2-42.5-198.5-52.7-280.9-29.7-3.9 1-8.1 2.6-12.9 2.6-13.2 0-23.3-10.3-23.3-23.6 0-13.6 8.4-21.3 17.4-23.9 35.2-10.3 74.6-15.2 117.5-15.2 73 0 149.5 15.2 205.4 47.8 7.8 4.5 12.9 10.7 12.9 22.6 0 13.2-10.3 23.3-23.2 23.3z"/>
     </svg>
   );
 }
@@ -389,7 +385,7 @@ export default function BlendRoomPage() {
 function MatchCard({ match }: { match: Match }) {
   const { spotify, ytmusic, score } = match;
   return (
-    <div className="rounded-xl bg-[#111] border border-white/5 p-4 flex items-center gap-4 hover:bg-white/5 transition">
+    <div className="rounded-xl bg-[#111] border border-white/5 p-4 flex items-center gap-4 hover:bg-white/5 transition cursor-pointer" onClick={() => window.open(spotify.url, "_blank")}>
       <div className="w-11 h-11 shrink-0">
         {spotify.thumbnail && (
           <img src={spotify.thumbnail} alt="" className="w-11 h-11 rounded-lg object-cover" />
@@ -417,24 +413,24 @@ function MatchCard({ match }: { match: Match }) {
 function TrackCard({ track }: { track: Track }) {
   const isSpotify = track.source === "spotify";
   return (
-    <div className="rounded-xl bg-[#111] border border-white/5 p-4 flex items-center gap-4 hover:bg-white/5 transition">
+    <a href={track.url} target="_blank" rel="noopener noreferrer"
+      className="rounded-xl bg-[#111] border border-white/5 p-4 flex items-center gap-4 hover:bg-white/5 transition cursor-pointer">
       <div className="w-11 h-11 shrink-0">
         {track.thumbnail && (
           <img src={track.thumbnail} alt="" className="w-11 h-11 rounded-lg object-cover" />
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="font-medium text-sm truncate">{track.title || track.raw_title}</p>
+        <p className="font-medium text-sm truncate text-white">{track.title || track.raw_title}</p>
         <p className="text-xs text-gray-500 truncate mt-0.5">{track.artist}</p>
       </div>
-      <a href={track.url} target="_blank" rel="noopener noreferrer"
-        className={`text-xs px-2.5 py-1 rounded-lg shrink-0 font-medium transition ${
-          isSpotify
-            ? "bg-[#1ED760]/10 text-[#1ED760] hover:bg-[#1ED760]/20"
-            : "bg-red-500/10 text-red-400 hover:bg-red-500/20"
-        }`}>
+      <span className={`text-xs px-2.5 py-1 rounded-lg shrink-0 font-medium ${
+        isSpotify
+          ? "bg-[#1ED760]/10 text-[#1ED760]"
+          : "bg-red-500/10 text-red-400"
+      }`}>
         {isSpotify ? "Spotify" : "YT Music"}
-      </a>
-    </div>
+      </span>
+    </a>
   );
 }
