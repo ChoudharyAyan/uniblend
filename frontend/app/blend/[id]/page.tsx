@@ -48,6 +48,30 @@ interface SessionStatus {
   error: string | null;
 }
 
+// ── Brand logos ───────────────────────────────────────────────────────────────
+
+function SpotifyLogo({ size = 56 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 168 168" aria-label="Spotify">
+      <circle cx="84" cy="84" r="84" fill="#1ED760" />
+      <path
+        fill="white"
+        d="M119.3 113.6c-1.9 3.1-5.9 4-9 2.1-24.6-15-55.6-18.4-92.1-10.1-3.5.8-7-1.4-7.8-4.9-.8-3.5 1.4-7 4.9-7.8 39.9-9.1 74.2-5.2 101.9 11.7 3.1 1.9 4 5.9 2.1 9zm11.3-24.1c-2.4 3.8-7.4 5-11.2 2.6-28.2-17.3-71.2-22.3-104.6-12.2-4.3 1.3-8.9-1.1-10.3-5.5-1.3-4.3 1.1-8.9 5.5-10.3 38.1-11.6 85.5-5.9 117.9 13.9 3.8 2.4 5 7.4 2.7 11.5zm1-24.5c-33.8-20.1-89.7-21.9-122-12.1-5.2 1.6-10.7-1.4-12.2-6.6-1.6-5.2 1.4-10.7 6.6-12.2 37.1-11.3 98.8-9.1 137.8 14 4.6 2.7 6.1 8.7 3.4 13.3-2.8 4.6-8.7 6.1-13.6 3.6z"
+      />
+    </svg>
+  );
+}
+
+function YTMusicLogo({ size = 56 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" aria-label="YouTube Music">
+      <circle cx="24" cy="24" r="24" fill="#FF0000" />
+      <circle cx="24" cy="24" r="12" fill="white" />
+      <polygon points="21,18 31,24 21,30" fill="#FF0000" />
+    </svg>
+  );
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function BlendRoomPage() {
@@ -63,13 +87,10 @@ export default function BlendRoomPage() {
   const [tab, setTab] = useState<Tab>("matches");
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // ── Handle OAuth redirect params ──────────────────────────────────────────
   useEffect(() => {
     if (!id) return;
-
     const spotifySession = searchParams.get("spotify_session");
     const ytSession = searchParams.get("ytmusic_session");
-
     if (spotifySession) {
       localStorage.setItem(`blend_${id}_platform`, "spotify");
       localStorage.setItem(`blend_${id}_session_id`, spotifySession);
@@ -86,10 +107,8 @@ export default function BlendRoomPage() {
     }
   }, [id, searchParams]);
 
-  // ── Poll blend status ─────────────────────────────────────────────────────
   useEffect(() => {
     if (!id) return;
-
     const poll = async () => {
       try {
         const { data } = await api.get<SessionStatus>(`/blend/session/${id}`);
@@ -104,13 +123,11 @@ export default function BlendRoomPage() {
         }
       }
     };
-
     poll();
     intervalRef.current = setInterval(poll, 3000);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [id]);
 
-  // ── Connect platform ──────────────────────────────────────────────────────
   const handleConnect = async (platform: Platform) => {
     setConnecting(platform);
     try {
@@ -126,31 +143,31 @@ export default function BlendRoomPage() {
     }
   };
 
-  // ── Copy link ─────────────────────────────────────────────────────────────
   const copyLink = () => {
     navigator.clipboard.writeText(window.location.href);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────
-
+  // ── Not found ──────────────────────────────────────────────────────────────
   if (notFound) {
     return (
-      <div className="max-w-xl mx-auto px-6 py-24 text-center">
-        <p className="text-red-400 text-lg mb-4">Blend not found or expired.</p>
-        <button onClick={() => router.push("/")} className="px-6 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 transition">
-          Create a new blend
-        </button>
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center text-white">
+        <div className="text-center px-6">
+          <p className="text-red-400 mb-6">This blend doesn't exist or has expired.</p>
+          <button onClick={() => router.push("/")} className="px-6 py-2.5 rounded-full bg-white/10 hover:bg-white/15 transition text-sm font-medium">
+            Create a new blend
+          </button>
+        </div>
       </div>
     );
   }
 
+  // ── Loading ────────────────────────────────────────────────────────────────
   if (!serverStatus) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <div className="w-10 h-10 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
-        <p className="text-gray-400">Loading blend room…</p>
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -158,187 +175,212 @@ export default function BlendRoomPage() {
   const { spotify_connected, ytmusic_connected, status, result, error } = serverStatus;
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
 
-  // ── Phase: done ───────────────────────────────────────────────────────────
+  // ── Done ───────────────────────────────────────────────────────────────────
   if (status === "done" && result) {
     const { stats, matches, spotify_only, yt_only } = result;
-    const tabs: { key: Tab; label: string; count: number }[] = [
-      { key: "matches", label: "Matches", count: stats.matched },
-      { key: "spotify_only", label: "Spotify only", count: stats.spotify_only },
-      { key: "yt_only", label: "YouTube only", count: stats.yt_only },
+    const tabs: { key: Tab; label: string; count: number; color: string }[] = [
+      { key: "matches", label: "In Common", count: stats.matched, color: "violet" },
+      { key: "spotify_only", label: "Spotify only", count: stats.spotify_only, color: "green" },
+      { key: "yt_only", label: "YouTube only", count: stats.yt_only, color: "red" },
     ];
+
     return (
-      <div className="max-w-4xl mx-auto px-6 py-12">
-        <button onClick={() => router.push("/")} className="text-sm text-gray-500 hover:text-gray-300 mb-6 inline-flex items-center gap-1 transition">
-          ← New blend
-        </button>
-        <h1 className="text-3xl font-bold mb-1">Your Blend ✨</h1>
-        <p className="text-gray-400 text-sm mb-8">
-          {stats.total_spotify} Spotify tracks · {stats.total_yt} YouTube Music tracks
-        </p>
+      <div className="min-h-screen bg-[#0a0a0a] text-white">
+        <div className="max-w-3xl mx-auto px-6 py-12">
+          <button onClick={() => router.push("/")} className="text-xs text-gray-600 hover:text-gray-400 mb-10 inline-flex items-center gap-1.5 transition">
+            ← New blend
+          </button>
 
-        <div className="grid grid-cols-3 gap-4 mb-8">
-          <div className="rounded-xl bg-violet-900/30 border border-violet-800 p-4 text-center">
-            <div className="text-2xl font-bold text-violet-300">{stats.matched}</div>
-            <div className="text-xs text-gray-400 mt-1">Matches</div>
+          {/* Header */}
+          <div className="mb-10">
+            <div className="flex items-center gap-3 mb-3">
+              <SpotifyLogo size={32} />
+              <div className="flex-1 h-px bg-gradient-to-r from-green-500/30 via-violet-500/40 to-red-500/30" />
+              <YTMusicLogo size={32} />
+            </div>
+            <h1 className="text-3xl font-bold mt-4">Your Blend</h1>
+            <p className="text-gray-500 text-sm mt-1">
+              {stats.total_spotify} Spotify tracks · {stats.total_yt} YouTube Music tracks
+            </p>
           </div>
-          <div className="rounded-xl bg-green-900/30 border border-green-800 p-4 text-center">
-            <div className="text-2xl font-bold text-green-300">{stats.spotify_only}</div>
-            <div className="text-xs text-gray-400 mt-1">Spotify only</div>
-          </div>
-          <div className="rounded-xl bg-red-900/30 border border-red-800 p-4 text-center">
-            <div className="text-2xl font-bold text-red-300">{stats.yt_only}</div>
-            <div className="text-xs text-gray-400 mt-1">YouTube only</div>
-          </div>
-        </div>
 
-        <div className="flex gap-2 mb-6">
-          {tabs.map((t) => (
-            <button key={t.key} onClick={() => setTab(t.key)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === t.key ? "bg-gray-700 text-white" : "text-gray-400 hover:text-gray-200"}`}>
-              {t.label}
-              <span className="ml-2 text-xs bg-gray-800 px-2 py-0.5 rounded-full">{t.count}</span>
-            </button>
-          ))}
-        </div>
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-3 mb-8">
+            <div className="rounded-2xl bg-violet-950/40 border border-violet-900/50 p-5 text-center">
+              <div className="text-3xl font-bold text-violet-300 mb-1">{stats.matched}</div>
+              <div className="text-xs text-gray-500">In common</div>
+            </div>
+            <div className="rounded-2xl bg-[#111] border border-white/5 p-5 text-center">
+              <div className="text-3xl font-bold text-green-400 mb-1">{stats.spotify_only}</div>
+              <div className="text-xs text-gray-500">Spotify only</div>
+            </div>
+            <div className="rounded-2xl bg-[#111] border border-white/5 p-5 text-center">
+              <div className="text-3xl font-bold text-red-400 mb-1">{stats.yt_only}</div>
+              <div className="text-xs text-gray-500">YouTube only</div>
+            </div>
+          </div>
 
-        <div className="space-y-2">
-          {tab === "matches" && matches.map((m, i) => <MatchCard key={i} match={m} />)}
-          {tab === "spotify_only" && spotify_only.map((t, i) => <TrackCard key={i} track={t} />)}
-          {tab === "yt_only" && yt_only.map((t, i) => <TrackCard key={i} track={t} />)}
-          {tab === "matches" && matches.length === 0 && (
-            <p className="text-gray-500 text-center py-12">No matches found — very different tastes!</p>
-          )}
+          {/* Tabs */}
+          <div className="flex gap-1 mb-6 p-1 bg-white/5 rounded-xl w-fit">
+            {tabs.map((t) => (
+              <button key={t.key} onClick={() => setTab(t.key)}
+                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  tab === t.key
+                    ? "bg-white/10 text-white shadow-sm"
+                    : "text-gray-500 hover:text-gray-300"
+                }`}>
+                {t.label}
+                <span className="ml-2 text-xs opacity-60">{t.count}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Track list */}
+          <div className="space-y-1.5">
+            {tab === "matches" && matches.map((m, i) => <MatchCard key={i} match={m} />)}
+            {tab === "spotify_only" && spotify_only.map((t, i) => <TrackCard key={i} track={t} />)}
+            {tab === "yt_only" && yt_only.map((t, i) => <TrackCard key={i} track={t} />)}
+            {tab === "matches" && matches.length === 0 && (
+              <div className="text-center py-16 text-gray-600">
+                <p className="text-4xl mb-4">🎵</p>
+                <p>No matches found — very different tastes!</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
   }
 
-  // ── Phase: error ──────────────────────────────────────────────────────────
+  // ── Error ──────────────────────────────────────────────────────────────────
   if (status === "error") {
     return (
-      <div className="max-w-xl mx-auto px-6 py-24 text-center">
-        <p className="text-red-400 mb-4">{error ?? "Something went wrong computing the blend."}</p>
-        <button onClick={() => router.push("/")} className="px-6 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 transition">
-          Try again
-        </button>
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center text-white">
+        <div className="text-center px-6">
+          <p className="text-red-400 mb-6">{error ?? "Something went wrong computing the blend."}</p>
+          <button onClick={() => router.push("/")} className="px-6 py-2.5 rounded-full bg-white/10 hover:bg-white/15 transition text-sm font-medium">
+            Try again
+          </button>
+        </div>
       </div>
     );
   }
 
-  // ── Phase: computing ──────────────────────────────────────────────────────
+  // ── Computing ──────────────────────────────────────────────────────────────
   if (status === "computing") {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <div className="w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
-        <p className="text-lg font-semibold">Blending your taste…</p>
-        <p className="text-gray-500 text-sm">This takes about 10–20 seconds</p>
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center text-white">
+        <div className="text-center">
+          <div className="flex items-center justify-center gap-3 mb-8">
+            <SpotifyLogo size={40} />
+            <div className="flex gap-1">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-bounce"
+                  style={{ animationDelay: `${i * 0.15}s` }} />
+              ))}
+            </div>
+            <YTMusicLogo size={40} />
+          </div>
+          <p className="text-lg font-semibold text-white mb-1">Blending your taste…</p>
+          <p className="text-gray-600 text-sm">This takes about 10–20 seconds</p>
+        </div>
       </div>
     );
   }
 
-  // ── Phase: waiting (one or both platforms not yet connected) ──────────────
+  // ── Waiting ────────────────────────────────────────────────────────────────
   const availablePlatform: Platform | null =
     !spotify_connected ? "spotify" : !ytmusic_connected ? "ytmusic" : null;
 
-  const platformLabel = (p: Platform) => (p === "spotify" ? "Spotify" : "YouTube Music");
-  const platformColor = (p: Platform) => (p === "spotify" ? "green" : "red");
-
   return (
-    <div className="max-w-2xl mx-auto px-6 py-16">
-      <button onClick={() => router.push("/")} className="text-sm text-gray-500 hover:text-gray-300 mb-8 inline-flex items-center gap-1 transition">
-        ← Home
-      </button>
-
-      <h1 className="text-3xl font-bold mb-2">Blend Room</h1>
-      <p className="text-gray-400 mb-10 text-sm">
-        Both friends need to connect their platform. Share this link with your friend.
-      </p>
-
-      {/* Share link */}
-      <div className="rounded-xl bg-gray-900 border border-gray-700 p-4 flex items-center gap-3 mb-10">
-        <span className="text-gray-400 text-xs flex-1 truncate">{shareUrl}</span>
-        <button onClick={copyLink}
-          className="text-xs px-3 py-1.5 rounded-lg bg-violet-700 hover:bg-violet-600 transition font-medium shrink-0">
-          {copied ? "Copied!" : "Copy link"}
+    <div className="min-h-screen bg-[#0a0a0a] text-white">
+      <div className="max-w-2xl mx-auto px-6 py-14">
+        <button onClick={() => router.push("/")} className="text-xs text-gray-600 hover:text-gray-400 mb-10 inline-flex items-center gap-1.5 transition">
+          ← Home
         </button>
-      </div>
 
-      {/* Platform status cards */}
-      <div className="grid grid-cols-2 gap-4 mb-10">
-        {(["spotify", "ytmusic"] as Platform[]).map((p) => {
-          const isConnected = p === "spotify" ? spotify_connected : ytmusic_connected;
-          const isMine = myPlatform === p;
-          const color = platformColor(p);
-          return (
-            <div key={p} className={`rounded-2xl border p-6 flex flex-col items-center gap-4 ${
-              isConnected ? `border-${color}-800 bg-${color}-900/20` : "border-gray-800 bg-gray-900"
+        <h1 className="text-3xl font-bold mb-1">Blend Room</h1>
+        <p className="text-gray-500 text-sm mb-10">
+          Both friends connect their platform to start the blend.
+        </p>
+
+        {/* Share link */}
+        <div className="bg-[#111] border border-white/5 rounded-2xl p-4 flex items-center gap-3 mb-10">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-gray-600 mb-0.5">Share this link with your friend</p>
+            <p className="text-gray-400 text-sm truncate">{shareUrl}</p>
+          </div>
+          <button onClick={copyLink}
+            className={`shrink-0 text-xs px-4 py-2 rounded-lg font-medium transition-all ${
+              copied
+                ? "bg-green-600/20 text-green-400 border border-green-600/30"
+                : "bg-violet-600 hover:bg-violet-500 text-white"
             }`}>
-              <div className="w-14 h-14 flex items-center justify-center">
-                {p === "spotify" ? <SpotifyLogo /> : <YTMusicLogo />}
-              </div>
-              <p className="font-semibold">{platformLabel(p)}</p>
-              <span className={`text-xs px-3 py-1 rounded-full font-medium ${
-                isConnected
-                  ? p === "spotify" ? "bg-green-900/60 text-green-400" : "bg-red-900/60 text-red-400"
-                  : "bg-gray-800 text-gray-500"
-              }`}>
-                {isConnected ? "● Connected" : "○ Not connected"}
-              </span>
-              {!isConnected && (
-                <button
-                  onClick={() => handleConnect(p)}
-                  disabled={connecting === p}
-                  className={`w-full py-2 rounded-xl font-semibold text-sm transition disabled:opacity-60 ${
-                    p === "spotify"
-                      ? "bg-green-500 hover:bg-green-400 text-black"
-                      : "bg-red-500 hover:bg-red-400 text-white"
-                  }`}>
-                  {connecting === p ? "Redirecting…" : `Connect ${platformLabel(p)}`}
-                </button>
-              )}
-              {isConnected && isMine && (
-                <p className="text-xs text-gray-500">You connected this</p>
-              )}
-              {isConnected && !isMine && (
-                <p className="text-xs text-gray-500">Your friend connected this</p>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Waiting indicator */}
-      {(spotify_connected || ytmusic_connected) && availablePlatform && (
-        <div className="text-center text-gray-400 text-sm flex items-center justify-center gap-2">
-          <div className="w-4 h-4 border-2 border-gray-500 border-t-transparent rounded-full animate-spin" />
-          Waiting for your friend to connect {platformLabel(availablePlatform)}…
+            {copied ? "Copied!" : "Copy"}
+          </button>
         </div>
-      )}
+
+        {/* Platform cards */}
+        <div className="grid grid-cols-2 gap-4 mb-10">
+          {(["spotify", "ytmusic"] as Platform[]).map((p) => {
+            const isConnected = p === "spotify" ? spotify_connected : ytmusic_connected;
+            const isMine = myPlatform === p;
+            const isSpotify = p === "spotify";
+
+            return (
+              <div key={p} className={`rounded-2xl border p-6 flex flex-col items-center gap-4 transition-all ${
+                isConnected
+                  ? isSpotify
+                    ? "border-green-800/50 bg-green-950/20"
+                    : "border-red-800/50 bg-red-950/20"
+                  : "border-white/5 bg-[#111]"
+              }`}>
+                {isSpotify ? <SpotifyLogo size={52} /> : <YTMusicLogo size={52} />}
+
+                <p className="font-semibold text-sm">{isSpotify ? "Spotify" : "YouTube Music"}</p>
+
+                <span className={`text-xs px-3 py-1 rounded-full font-medium ${
+                  isConnected
+                    ? isSpotify
+                      ? "bg-green-900/40 text-green-400"
+                      : "bg-red-900/40 text-red-400"
+                    : "bg-white/5 text-gray-600"
+                }`}>
+                  {isConnected ? "● Connected" : "○ Not connected"}
+                </span>
+
+                {!isConnected && (
+                  <button
+                    onClick={() => handleConnect(p)}
+                    disabled={connecting === p}
+                    className={`w-full py-2.5 rounded-xl font-semibold text-sm transition-all disabled:opacity-60 ${
+                      isSpotify
+                        ? "bg-[#1ED760] hover:bg-[#1db954] text-black"
+                        : "bg-[#FF0000] hover:bg-red-600 text-white"
+                    }`}>
+                    {connecting === p ? "Redirecting…" : `Connect ${isSpotify ? "Spotify" : "YouTube Music"}`}
+                  </button>
+                )}
+
+                {isConnected && (
+                  <p className="text-xs text-gray-600">
+                    {isMine ? "You connected this" : "Friend connected"}
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Waiting indicator */}
+        {(spotify_connected || ytmusic_connected) && availablePlatform && (
+          <div className="text-center text-gray-600 text-sm flex items-center justify-center gap-2">
+            <div className="w-3.5 h-3.5 border border-gray-600 border-t-transparent rounded-full animate-spin" />
+            Waiting for {availablePlatform === "spotify" ? "Spotify" : "YouTube Music"} to connect…
+          </div>
+        )}
+      </div>
     </div>
-  );
-}
-
-// ── Brand logos ───────────────────────────────────────────────────────────────
-
-function SpotifyLogo() {
-  return (
-    <svg viewBox="0 0 168 168" className="w-14 h-14" aria-label="Spotify">
-      <circle cx="84" cy="84" r="84" fill="#1ED760" />
-      <path
-        fill="white"
-        d="M119.3 113.6c-1.9 3.1-5.9 4-9 2.1-24.6-15-55.6-18.4-92.1-10.1-3.5.8-7-1.4-7.8-4.9-.8-3.5 1.4-7 4.9-7.8 39.9-9.1 74.2-5.2 101.9 11.7 3.1 1.9 4 5.9 2.1 9zm11.3-24.1c-2.4 3.8-7.4 5-11.2 2.6-28.2-17.3-71.2-22.3-104.6-12.2-4.3 1.3-8.9-1.1-10.3-5.5-1.3-4.3 1.1-8.9 5.5-10.3 38.1-11.6 85.5-5.9 117.9 13.9 3.8 2.4 5 7.4 2.7 11.5zm1-24.5c-33.8-20.1-89.7-21.9-122-12.1-5.2 1.6-10.7-1.4-12.2-6.6-1.6-5.2 1.4-10.7 6.6-12.2 37.1-11.3 98.8-9.1 137.8 14 4.6 2.7 6.1 8.7 3.4 13.3-2.8 4.6-8.7 6.1-13.6 3.6z"
-      />
-    </svg>
-  );
-}
-
-function YTMusicLogo() {
-  return (
-    <svg viewBox="0 0 48 48" className="w-14 h-14" aria-label="YouTube Music">
-      <circle cx="24" cy="24" r="24" fill="#FF0000" />
-      <circle cx="24" cy="24" r="12" fill="white" />
-      <polygon points="21,18 31,24 21,30" fill="#FF0000" />
-    </svg>
   );
 }
 
@@ -347,26 +389,26 @@ function YTMusicLogo() {
 function MatchCard({ match }: { match: Match }) {
   const { spotify, ytmusic, score } = match;
   return (
-    <div className="rounded-xl bg-gray-900 border border-gray-800 p-4 flex items-center gap-4">
-      <div className="w-12 h-12 shrink-0">
+    <div className="rounded-xl bg-[#111] border border-white/5 p-4 flex items-center gap-4 hover:bg-white/5 transition">
+      <div className="w-11 h-11 shrink-0">
         {spotify.thumbnail && (
-          <img src={spotify.thumbnail} alt="" className="w-12 h-12 rounded-lg object-cover" />
+          <img src={spotify.thumbnail} alt="" className="w-11 h-11 rounded-lg object-cover" />
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="font-medium truncate">{spotify.title}</p>
-        <p className="text-sm text-gray-400 truncate">{spotify.artist}</p>
+        <p className="font-medium text-sm truncate">{spotify.title}</p>
+        <p className="text-xs text-gray-500 truncate mt-0.5">{spotify.artist}</p>
       </div>
       <div className="flex items-center gap-2 shrink-0">
         <a href={spotify.url} target="_blank" rel="noopener noreferrer"
-          className="text-xs px-2 py-1 rounded bg-green-900/50 text-green-400 hover:bg-green-900 transition">
+          className="text-xs px-2.5 py-1 rounded-lg bg-[#1ED760]/10 text-[#1ED760] hover:bg-[#1ED760]/20 transition font-medium">
           Spotify
         </a>
         <a href={ytmusic.url} target="_blank" rel="noopener noreferrer"
-          className="text-xs px-2 py-1 rounded bg-red-900/50 text-red-400 hover:bg-red-900 transition">
-          YouTube
+          className="text-xs px-2.5 py-1 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition font-medium">
+          YT Music
         </a>
-        <span className="text-xs text-gray-500 w-10 text-right">{score}%</span>
+        <span className="text-xs text-gray-600 w-9 text-right tabular-nums">{score}%</span>
       </div>
     </div>
   );
@@ -375,21 +417,23 @@ function MatchCard({ match }: { match: Match }) {
 function TrackCard({ track }: { track: Track }) {
   const isSpotify = track.source === "spotify";
   return (
-    <div className="rounded-xl bg-gray-900 border border-gray-800 p-4 flex items-center gap-4">
-      <div className="w-12 h-12 shrink-0">
+    <div className="rounded-xl bg-[#111] border border-white/5 p-4 flex items-center gap-4 hover:bg-white/5 transition">
+      <div className="w-11 h-11 shrink-0">
         {track.thumbnail && (
-          <img src={track.thumbnail} alt="" className="w-12 h-12 rounded-lg object-cover" />
+          <img src={track.thumbnail} alt="" className="w-11 h-11 rounded-lg object-cover" />
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="font-medium truncate">{track.title || track.raw_title}</p>
-        <p className="text-sm text-gray-400 truncate">{track.artist}</p>
+        <p className="font-medium text-sm truncate">{track.title || track.raw_title}</p>
+        <p className="text-xs text-gray-500 truncate mt-0.5">{track.artist}</p>
       </div>
       <a href={track.url} target="_blank" rel="noopener noreferrer"
-        className={`text-xs px-2 py-1 rounded shrink-0 transition ${
-          isSpotify ? "bg-green-900/50 text-green-400 hover:bg-green-900" : "bg-red-900/50 text-red-400 hover:bg-red-900"
+        className={`text-xs px-2.5 py-1 rounded-lg shrink-0 font-medium transition ${
+          isSpotify
+            ? "bg-[#1ED760]/10 text-[#1ED760] hover:bg-[#1ED760]/20"
+            : "bg-red-500/10 text-red-400 hover:bg-red-500/20"
         }`}>
-        {isSpotify ? "Spotify" : "YouTube"}
+        {isSpotify ? "Spotify" : "YT Music"}
       </a>
     </div>
   );
