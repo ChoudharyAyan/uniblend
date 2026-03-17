@@ -309,6 +309,26 @@ async def _compute_blend(blend_id: str) -> None:
         sp = _get_spotify(sp_session)
         spotify_tracks = _enrich_spotify_tracks(sp, spotify_tracks_raw)
 
+        # Fetch display names
+        try:
+            sp_user = sp.current_user()
+            spotify_name = sp_user.get("display_name") or sp_user.get("id") or "Friend 1"
+        except Exception:
+            spotify_name = "Friend 1"
+
+        try:
+            token_info = ytmusic_tokens.get(yt_session, {})
+            async with httpx.AsyncClient() as client:
+                ch_resp = await client.get(
+                    "https://www.googleapis.com/youtube/v3/channels",
+                    headers={"Authorization": f"Bearer {token_info['access_token']}"},
+                    params={"part": "snippet", "mine": "true"},
+                )
+                ch_data = ch_resp.json()
+                yt_name = (ch_data.get("items") or [{}])[0].get("snippet", {}).get("title") or "Friend 2"
+        except Exception:
+            yt_name = "Friend 2"
+
         # Strip internal _artist_ids from tracks returned to the client
         spotify_tracks_clean = [{k: v for k, v in t.items() if k != "_artist_ids"} for t in spotify_tracks]
 
@@ -319,6 +339,8 @@ async def _compute_blend(blend_id: str) -> None:
         blend_result, _u1, _u2 = calculate_blend(spotify_tracks, yt_tracks)
 
         session["result"] = {
+            "spotify_display_name": spotify_name,
+            "ytmusic_display_name": yt_name,
             "matches": matches,
             "spotify_only": spotify_only[:50],
             "yt_only": yt_only[:50],
@@ -363,6 +385,8 @@ def create_blend_session():
         "status": "waiting",
         "result": None,
         "error": None,
+        "spotify_display_name": None,
+        "ytmusic_display_name": None,
     }
     return {"blend_id": blend_id}
 
@@ -388,6 +412,8 @@ async def get_blend_session(blend_id: str, background_tasks: BackgroundTasks):
         "status": session["status"],
         "spotify_connected": session["spotify_session"] is not None,
         "ytmusic_connected": session["ytmusic_session"] is not None,
+        "spotify_display_name": session.get("spotify_display_name"),
+        "ytmusic_display_name": session.get("ytmusic_display_name"),
         "result": session["result"],
         "error": session["error"],
     }

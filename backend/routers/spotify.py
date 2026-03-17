@@ -68,6 +68,13 @@ def spotify_callback(code: str = Query(...), state: str = Query(...)):
 
     if blend_id and blend_id in blend_sessions:
         blend_sessions[blend_id]["spotify_session"] = session_id
+        try:
+            sp = spotipy.Spotify(auth=token_info["access_token"])
+            user_info = sp.current_user()
+            display_name = user_info.get("display_name") or user_info.get("id") or "Friend 1"
+            blend_sessions[blend_id]["spotify_display_name"] = display_name
+        except Exception:
+            pass
 
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").split(",")[0].strip()
     if blend_id:

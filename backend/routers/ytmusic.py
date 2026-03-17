@@ -76,6 +76,18 @@ async def google_callback(code: str = Query(...), state: str = Query(...)):
 
     if blend_id and blend_id in blend_sessions:
         blend_sessions[blend_id]["ytmusic_session"] = session_id
+        try:
+            async with httpx.AsyncClient() as _c:
+                ch = await _c.get(
+                    "https://www.googleapis.com/youtube/v3/channels",
+                    headers={"Authorization": f"Bearer {token_info['access_token']}"},
+                    params={"part": "snippet", "mine": "true"},
+                )
+                ch_data = ch.json()
+                yt_name = (ch_data.get("items") or [{}])[0].get("snippet", {}).get("title") or "Friend 2"
+                blend_sessions[blend_id]["ytmusic_display_name"] = yt_name
+        except Exception:
+            pass
 
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").split(",")[0].strip()
     if blend_id:

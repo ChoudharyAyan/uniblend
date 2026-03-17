@@ -39,6 +39,8 @@ interface BlendAnalysis {
 }
 
 interface BlendResult {
+  spotify_display_name?: string;
+  ytmusic_display_name?: string;
   matches: Match[];
   spotify_only: Track[];
   yt_only: Track[];
@@ -57,6 +59,8 @@ interface SessionStatus {
   status: BlendStatus;
   spotify_connected: boolean;
   ytmusic_connected: boolean;
+  spotify_display_name: string | null;
+  ytmusic_display_name: string | null;
   result: BlendResult | null;
   error: string | null;
 }
@@ -77,6 +81,46 @@ function YTMusicLogo({ size = 56 }: { size?: number }) {
       <circle cx="24" cy="24" r="24" fill="#FF0000" />
       <circle cx="24" cy="24" r="12" fill="white" />
       <polygon points="21,18 31,24 21,30" fill="#FF0000" />
+    </svg>
+  );
+}
+
+function FriendsIllustration() {
+  return (
+    <svg width="160" height="100" viewBox="0 0 160 100" fill="none" aria-hidden="true">
+      {/* Left person */}
+      <circle cx="48" cy="28" r="14" fill="#7c3aed" opacity="0.85"/>
+      {/* face */}
+      <circle cx="44" cy="26" r="1.5" fill="white" opacity="0.9"/>
+      <circle cx="52" cy="26" r="1.5" fill="white" opacity="0.9"/>
+      <path d="M44 31 Q48 34 52 31" stroke="white" strokeWidth="1.5" strokeLinecap="round" fill="none" opacity="0.9"/>
+      {/* body */}
+      <rect x="38" y="44" width="20" height="22" rx="10" fill="#7c3aed" opacity="0.7"/>
+      {/* headphones left */}
+      <path d="M35 28 Q34 20 48 20 Q62 20 61 28" stroke="#a78bfa" strokeWidth="2" fill="none" strokeLinecap="round"/>
+      <rect x="33" y="26" width="5" height="8" rx="2.5" fill="#a78bfa"/>
+      <rect x="60" y="26" width="5" height="8" rx="2.5" fill="#a78bfa"/>
+
+      {/* Right person */}
+      <circle cx="112" cy="28" r="14" fill="#ef4444" opacity="0.75"/>
+      {/* face */}
+      <circle cx="108" cy="26" r="1.5" fill="white" opacity="0.9"/>
+      <circle cx="116" cy="26" r="1.5" fill="white" opacity="0.9"/>
+      <path d="M108 31 Q112 34 116 31" stroke="white" strokeWidth="1.5" strokeLinecap="round" fill="none" opacity="0.9"/>
+      {/* body */}
+      <rect x="102" y="44" width="20" height="22" rx="10" fill="#ef4444" opacity="0.6"/>
+      {/* headphones right */}
+      <path d="M99 28 Q98 20 112 20 Q126 20 125 28" stroke="#fca5a5" strokeWidth="2" fill="none" strokeLinecap="round"/>
+      <rect x="97" y="26" width="5" height="8" rx="2.5" fill="#fca5a5"/>
+      <rect x="124" y="26" width="5" height="8" rx="2.5" fill="#fca5a5"/>
+
+      {/* Music notes floating between them */}
+      <text x="72" y="22" fontSize="12" fill="#c4b5fd" opacity="0.8">♪</text>
+      <text x="84" y="35" fontSize="9" fill="#a78bfa" opacity="0.6">♫</text>
+      <text x="76" y="48" fontSize="7" fill="#c4b5fd" opacity="0.5">♩</text>
+
+      {/* Connecting line / wave */}
+      <path d="M68 68 Q80 60 92 68" stroke="white" strokeWidth="1" strokeDasharray="3 3" opacity="0.2" fill="none"/>
     </svg>
   );
 }
@@ -187,6 +231,8 @@ export default function BlendRoomPage() {
   // ── Done ───────────────────────────────────────────────────────────────────
   if (status === "done" && result) {
     const { stats, matches, spotify_only, yt_only, blend_analysis } = result;
+    const sp_name = result.spotify_display_name ?? serverStatus.spotify_display_name ?? "Friend 1";
+    const yt_name = result.ytmusic_display_name ?? serverStatus.ytmusic_display_name ?? "Friend 2";
     const tabs: { key: Tab; label: string; count: number; color: string }[] = [
       { key: "matches", label: "In Common", count: stats.matched, color: "violet" },
       { key: "spotify_only", label: "Spotify only", count: stats.spotify_only, color: "green" },
@@ -202,15 +248,29 @@ export default function BlendRoomPage() {
 
           {/* Header */}
           <div className="mb-10">
-            <div className="flex items-center gap-3 mb-3">
-              <SpotifyLogo size={32} />
-              <div className="flex-1 h-px bg-gradient-to-r from-green-500/30 via-violet-500/40 to-red-500/30" />
-              <YTMusicLogo size={32} />
+            <div className="flex flex-col sm:flex-row items-center gap-6">
+              {/* Illustration */}
+              <div className="shrink-0">
+                <FriendsIllustration />
+              </div>
+              {/* Title block */}
+              <div className="flex-1 min-w-0 text-center sm:text-left">
+                <div className="flex items-center justify-center sm:justify-start gap-2 mb-3">
+                  <SpotifyLogo size={22} />
+                  <div className="w-6 h-px bg-gradient-to-r from-green-500/40 via-violet-500/50 to-red-500/40" />
+                  <YTMusicLogo size={22} />
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-bold leading-tight">
+                  <span className="text-green-400">{sp_name}</span>
+                  <span className="text-gray-500 mx-2 font-light">&lt;&gt;</span>
+                  <span className="text-red-400">{yt_name}</span>
+                  <span className="text-white">'s Blend</span>
+                </h1>
+                <p className="text-gray-500 text-sm mt-2">
+                  {stats.total_spotify} Spotify tracks · {stats.total_yt} YouTube Music tracks
+                </p>
+              </div>
             </div>
-            <h1 className="text-3xl font-bold mt-4">Your Blend</h1>
-            <p className="text-gray-500 text-sm mt-1">
-              {stats.total_spotify} Spotify tracks · {stats.total_yt} YouTube Music tracks
-            </p>
           </div>
 
           {/* Blend Score (algorithm result) */}
