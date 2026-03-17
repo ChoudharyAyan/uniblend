@@ -26,6 +26,18 @@ interface Match {
   score: number;
 }
 
+interface BlendAnalysis {
+  match_percentage: number;
+  match_label: string;
+  vibe_summary: string;
+  dominant_user: "user1" | "user2" | "equal";
+  shared_genres: { genre: string; weight: number }[];
+  top_common_artists: { name: string; count: number }[];
+  top_common_tracks: { artist: string; title: string }[];
+  unique_to_spotify: string[];
+  unique_to_ytmusic: string[];
+}
+
 interface BlendResult {
   matches: Match[];
   spotify_only: Track[];
@@ -37,6 +49,7 @@ interface BlendResult {
     spotify_only: number;
     yt_only: number;
   };
+  blend_analysis?: BlendAnalysis;
 }
 
 interface SessionStatus {
@@ -173,7 +186,7 @@ export default function BlendRoomPage() {
 
   // ── Done ───────────────────────────────────────────────────────────────────
   if (status === "done" && result) {
-    const { stats, matches, spotify_only, yt_only } = result;
+    const { stats, matches, spotify_only, yt_only, blend_analysis } = result;
     const tabs: { key: Tab; label: string; count: number; color: string }[] = [
       { key: "matches", label: "In Common", count: stats.matched, color: "violet" },
       { key: "spotify_only", label: "Spotify only", count: stats.spotify_only, color: "green" },
@@ -199,6 +212,59 @@ export default function BlendRoomPage() {
               {stats.total_spotify} Spotify tracks · {stats.total_yt} YouTube Music tracks
             </p>
           </div>
+
+          {/* Blend Score (algorithm result) */}
+          {blend_analysis && (
+            <div className="mb-8 rounded-2xl bg-[#111] border border-white/5 p-6">
+              <div className="flex items-center gap-6 mb-4">
+                <div className="text-center shrink-0">
+                  <div className="text-5xl font-bold text-violet-300 tabular-nums">
+                    {Math.round(blend_analysis.match_percentage)}%
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">{blend_analysis.match_label}</div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-gray-300 leading-relaxed">{blend_analysis.vibe_summary}</p>
+                  {blend_analysis.dominant_user !== "equal" && (
+                    <p className="text-xs text-gray-600 mt-2">
+                      Leaning more{" "}
+                      <span className={blend_analysis.dominant_user === "user1" ? "text-green-400" : "text-red-400"}>
+                        {blend_analysis.dominant_user === "user1" ? "Spotify" : "YouTube Music"}
+                      </span>
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Shared genres */}
+              {blend_analysis.shared_genres.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-xs text-gray-600 mb-2">Shared genres</p>
+                  <div className="flex flex-wrap gap-2">
+                    {blend_analysis.shared_genres.map((g, i) => (
+                      <span key={i} className="text-xs px-3 py-1 rounded-full bg-violet-900/30 border border-violet-800/40 text-violet-300 capitalize">
+                        {g.genre}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Top common artists */}
+              {blend_analysis.top_common_artists.length > 0 && (
+                <div>
+                  <p className="text-xs text-gray-600 mb-2">Mutual favourites</p>
+                  <div className="flex flex-wrap gap-2">
+                    {blend_analysis.top_common_artists.map((a, i) => (
+                      <span key={i} className="text-xs px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300 capitalize">
+                        {a.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Stats */}
           <div className="grid grid-cols-3 gap-3 mb-8">

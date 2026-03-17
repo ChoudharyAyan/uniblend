@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 
 from store import spotify_tokens, ytmusic_tokens, blend_sessions, prune_blend_sessions
 from utils.matcher import match_tracks
+from blend.algorithm import calculate_blend
 
 load_dotenv()
 
@@ -51,6 +52,8 @@ def _normalise_spotify_track(t: dict) -> dict:
         "thumbnail": images[0]["url"] if images else "",
         "url": t.get("external_urls", {}).get("spotify", ""),
         "source": "spotify",
+        # Keep artist IDs temporarily for genre enrichment; stripped before returning to client
+        "_artist_ids": [a["id"] for a in t.get("artists", []) if a.get("id")],
     }
 
 
@@ -82,6 +85,77 @@ async def _fetch_spotify_tracks(session_id: str) -> list:
         pass  # scope may not cover this on existing tokens
 
     return [_normalise_spotify_track(t) for t in raw.values()]
+
+
+def _enrich_spotify_tracks(sp: spotipy.Spotify, tracks: list) -> list:
+    """
+    Attach audio_features and genres to each Spotify track dict.
+    Works in batches of 50 (Spotify API limit).
+    """
+    ids = [t["id"] for t in tracks if t.get("id")]
+
+    # Batch fetch audio features
+    features_map: dict = {}
+    for i in range(0, len(ids), 50):
+        batch = ids[i:i + 50]
+        try:
+            results = sp.audio_features(batch) or []
+            for f in results:
+                if f and f.get("id"):
+                    features_map[f["id"]] = {
+                        "energy": f.get("energy", 0.5),
+                        "danceability": f.get("danceability", 0.5),
+                        "valence": f.get("valence", 0.5),
+                        "acousticness": f.get("acousticness", 0.3),
+                        "instrumentalness": f.get("instrumentalness", 0.05),
+                        "speechiness": f.get("speechiness", 0.05),
+                        "tempo": f.get("tempo", 120),
+                    }
+        except Exception:
+            pass
+
+    # Collect unique artist IDs to batch-fetch genres
+    artist_id_map: dict = {}  # artist_name_lower -> genres list
+    # We need artist IDs from the raw track data — store them in normalised tracks
+    # Re-fetch top tracks to get artist IDs (already cached in sp object)
+    # Instead, collect artist names from tracks and batch-fetch by searching
+    # Simpler: fetch genre info from the sp.artist() calls using artist IDs
+    # The normalised tracks don't carry artist IDs, so we'll skip genre enrichment
+    # for YT tracks but enrich Spotify tracks via their artist IDs.
+    # We'll store artist_ids during normalisation below.
+
+    enriched = []
+    for t in tracks:
+        track_id = t.get("id", "")
+        af = features_map.get(track_id)
+        enriched.append({
+            **t,
+            "audio_features": af,  # None if not available — algorithm handles this
+            "genres": [],           # filled in next step
+            "_artist_ids": t.get("_artist_ids", []),
+        })
+
+    # Batch fetch artist genres
+    all_artist_ids = list({aid for t in enriched for aid in t.get("_artist_ids", [])})
+    artist_genres_map: dict = {}
+    for i in range(0, len(all_artist_ids), 50):
+        batch = all_artist_ids[i:i + 50]
+        try:
+            results = sp.artists(batch)
+            for a in (results or {}).get("artists", []):
+                if a and a.get("id"):
+                    artist_genres_map[a["id"]] = a.get("genres", [])
+        except Exception:
+            pass
+
+    for t in enriched:
+        genres = []
+        for aid in t.get("_artist_ids", []):
+            genres.extend(artist_genres_map.get(aid, []))
+        t["genres"] = list(dict.fromkeys(genres))  # dedupe, preserve order
+        t.pop("_artist_ids", None)
+
+    return enriched
 
 
 # ── YouTube Music ─────────────────────────────────────────────────────────────
@@ -227,9 +301,23 @@ async def _compute_blend(blend_id: str) -> None:
     try:
         sp_session = session["spotify_session"]
         yt_session = session["ytmusic_session"]
-        spotify_tracks = await _fetch_spotify_tracks(sp_session)
+
+        spotify_tracks_raw = await _fetch_spotify_tracks(sp_session)
         yt_tracks = await _fetch_yt_tracks(yt_session)
-        matches, spotify_only, yt_only = match_tracks(spotify_tracks, yt_tracks)
+
+        # Enrich Spotify tracks with audio_features + artist genres
+        sp = _get_spotify(sp_session)
+        spotify_tracks = _enrich_spotify_tracks(sp, spotify_tracks_raw)
+
+        # Strip internal _artist_ids from tracks returned to the client
+        spotify_tracks_clean = [{k: v for k, v in t.items() if k != "_artist_ids"} for t in spotify_tracks]
+
+        # Fuzzy match for the track display (matches / spotify_only / yt_only)
+        matches, spotify_only, yt_only = match_tracks(spotify_tracks_clean, yt_tracks)
+
+        # 5-stage blend algorithm
+        blend_result, _u1, _u2 = calculate_blend(spotify_tracks, yt_tracks)
+
         session["result"] = {
             "matches": matches,
             "spotify_only": spotify_only[:50],
@@ -240,6 +328,20 @@ async def _compute_blend(blend_id: str) -> None:
                 "matched": len(matches),
                 "spotify_only": len(spotify_only),
                 "yt_only": len(yt_only),
+            },
+            "blend_analysis": {
+                "match_percentage": blend_result.match_percentage,
+                "match_label": blend_result.match_label,
+                "vibe_summary": blend_result.vibe_summary,
+                "dominant_user": blend_result.dominant_user,
+                "shared_genres": blend_result.shared_genres[:8],
+                "genre_breakdown": blend_result.genre_breakdown,
+                "top_common_artists": blend_result.top_common_artists,
+                "top_common_tracks": blend_result.top_common_tracks,
+                "audio_profile_comparison": blend_result.audio_profile_comparison,
+                "unique_to_spotify": blend_result.unique_to_user1[:10],
+                "unique_to_ytmusic": blend_result.unique_to_user2[:10],
+                "blend_playlist_tracks": blend_result.blend_playlist_tracks[:20],
             },
         }
         session["status"] = "done"
