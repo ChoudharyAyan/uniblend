@@ -166,40 +166,8 @@ async def _fetch_yt_tracks(session_id: str) -> list:
                 if t["id"] not in raw:
                     raw[t["id"]] = t
 
-        # ── 3. Liked YouTube videos filtered to Music category ────────────────
-        next_page = None
-        while len(raw) < 500:
-            params = {"part": "snippet", "myRating": "like", "maxResults": 50,
-                      "videoCategoryId": "10"}
-            if next_page:
-                params["pageToken"] = next_page
-            resp = await client.get(
-                "https://www.googleapis.com/youtube/v3/videos",
-                headers={"Authorization": f"Bearer {access_token}"},
-                params=params,
-            )
-            data = resp.json()
-            if "error" in data:
-                break
-            for item in data.get("items", []):
-                vid = item.get("id", "")
-                if not vid or vid in raw:
-                    continue
-                snippet = item.get("snippet", {})
-                thumbs = snippet.get("thumbnails", {})
-                thumb = (thumbs.get("medium") or thumbs.get("default") or {}).get("url", "")
-                raw[vid] = {
-                    "id": vid,
-                    "title": snippet.get("title", ""),
-                    "artist": snippet.get("channelTitle", "").replace(" - Topic", "").strip(),
-                    "album": "",
-                    "thumbnail": thumb,
-                    "url": f"https://music.youtube.com/watch?v={vid}",
-                    "source": "ytmusic",
-                }
-            next_page = data.get("nextPageToken")
-            if not next_page or not data.get("items"):
-                break
+        # Liked YouTube videos skipped — videoCategoryId filter is unreliable
+        # and pulls non-music content. LM playlist + user playlists are sufficient.
 
     # ytmusicapi (history/liked) requires TV_EMBEDDED OAuth client type,
     # incompatible with standard web app credentials — skipped for now.

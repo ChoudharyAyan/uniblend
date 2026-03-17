@@ -273,10 +273,8 @@ export default function BlendRoomPage() {
             <div key={p} className={`rounded-2xl border p-6 flex flex-col items-center gap-4 ${
               isConnected ? `border-${color}-800 bg-${color}-900/20` : "border-gray-800 bg-gray-900"
             }`}>
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl ${
-                p === "spotify" ? "bg-green-500" : "bg-red-500"
-              }`}>
-                {p === "spotify" ? "🎵" : "🎶"}
+              <div className="w-14 h-14 flex items-center justify-center">
+                {p === "spotify" ? <SpotifyLogo /> : <YTMusicLogo />}
               </div>
               <p className="font-semibold">{platformLabel(p)}</p>
               <span className={`text-xs px-3 py-1 rounded-full font-medium ${
@@ -317,6 +315,30 @@ export default function BlendRoomPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// ── Brand logos ───────────────────────────────────────────────────────────────
+
+function SpotifyLogo() {
+  return (
+    <svg viewBox="0 0 168 168" className="w-14 h-14" aria-label="Spotify">
+      <circle cx="84" cy="84" r="84" fill="#1ED760" />
+      <path
+        fill="white"
+        d="M119.3 113.6c-1.9 3.1-5.9 4-9 2.1-24.6-15-55.6-18.4-92.1-10.1-3.5.8-7-1.4-7.8-4.9-.8-3.5 1.4-7 4.9-7.8 39.9-9.1 74.2-5.2 101.9 11.7 3.1 1.9 4 5.9 2.1 9zm11.3-24.1c-2.4 3.8-7.4 5-11.2 2.6-28.2-17.3-71.2-22.3-104.6-12.2-4.3 1.3-8.9-1.1-10.3-5.5-1.3-4.3 1.1-8.9 5.5-10.3 38.1-11.6 85.5-5.9 117.9 13.9 3.8 2.4 5 7.4 2.7 11.5zm1-24.5c-33.8-20.1-89.7-21.9-122-12.1-5.2 1.6-10.7-1.4-12.2-6.6-1.6-5.2 1.4-10.7 6.6-12.2 37.1-11.3 98.8-9.1 137.8 14 4.6 2.7 6.1 8.7 3.4 13.3-2.8 4.6-8.7 6.1-13.6 3.6z"
+      />
+    </svg>
+  );
+}
+
+function YTMusicLogo() {
+  return (
+    <svg viewBox="0 0 48 48" className="w-14 h-14" aria-label="YouTube Music">
+      <circle cx="24" cy="24" r="24" fill="#FF0000" />
+      <circle cx="24" cy="24" r="12" fill="white" />
+      <polygon points="21,18 31,24 21,30" fill="#FF0000" />
+    </svg>
   );
 }
 
