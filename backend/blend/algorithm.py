@@ -11,6 +11,7 @@ Stages:
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
@@ -92,6 +93,21 @@ class BlendResult:
 
 def _norm(s: str) -> str:
     return s.lower().strip()
+
+
+def _clean_artist_name(name: str) -> str:
+    """Strip YouTube channel suffixes so names match Spotify artist names."""
+    # Remove everything after " - Topic", " - VEVO", etc.
+    name = re.sub(
+        r'\s*[-–]\s*(topic|vevo|official|music|records?|entertainment|tv|hd|lyrics?|official\s+channel).*$',
+        '', name, flags=re.IGNORECASE,
+    )
+    # Remove trailing VEVO / Official with no dash
+    name = re.sub(r'\s*(vevo|official)$', '', name, flags=re.IGNORECASE)
+    # Remove featured artists: "Artist ft. X", "Artist feat. X", "Artist (feat. X)"
+    name = re.sub(r'\s*(ft\.?|feat\.?|featuring)\s+.*$', '', name, flags=re.IGNORECASE)
+    name = re.sub(r'\s*\(feat\.?.*?\)', '', name, flags=re.IGNORECASE)
+    return name.strip()
 
 
 def _position_weight(idx: int) -> float:
@@ -237,22 +253,25 @@ def build_user_profile(tracks: List[Dict]) -> UserProfile:
         else GENRE_AUDIO_DEFAULTS["default"]
     )
 
-    # --- Top artists (deduplicated, up to 20) ---
+    # --- Top artists (deduplicated, up to 50) ---
     seen: Dict[str, bool] = {}
     top_artists: List[str] = []
     for track in tracks:
-        a = _norm(track.get("artist", ""))
+        raw_artist = track.get("artist", "")
+        a = _norm(_clean_artist_name(raw_artist))
         if a and a not in seen:
             seen[a] = True
             top_artists.append(a)
-        if len(top_artists) >= 20:
+        if len(top_artists) >= 50:
             break
 
-    # --- Top tracks (up to 50) ---
+    # --- Top tracks (up to 100) ---
     top_tracks: List[str] = []
-    for track in tracks[:50]:
-        a = _norm(track.get("artist", ""))
+    for track in tracks[:100]:
+        a = _norm(_clean_artist_name(track.get("artist", "")))
         t = _norm(track.get("title", ""))
+        # Strip "(Official Video)", "[HD]" etc. from title
+        t = re.sub(r'\s*[\(\[][^)\]]*?(official|video|lyrics?|hd|hq|audio|full\s+song)[^)\]]*?[\)\]]', '', t, flags=re.IGNORECASE).strip()
         if a and t:
             top_tracks.append(f"{a}|||{t}")
 
@@ -286,22 +305,31 @@ def calculate_blend(
     u2 = user2_profile or build_user_profile(user2_tracks)
 
     # Stage 2 — Genre DNA
-    genre_jaccard = _weighted_jaccard(u1.genre_vector, u2.genre_vector)
-    family_bonus = 0.0
-    for g1, w1 in u1.genre_vector.items():
-        if w1 > 0.1:
-            f1 = GENRE_TO_FAMILY.get(g1)
-            for g2, w2 in u2.genre_vector.items():
-                if w2 > 0.1:
-                    f2 = GENRE_TO_FAMILY.get(g2)
-                    if f1 and f1 == f2 and f1 != g1 and f1 != g2:
-                        family_bonus = min(family_bonus + 0.03, 0.15)
-    genre_score = min(1.0, genre_jaccard + family_bonus)
+    u1_has_genres = len(u1.genre_vector) > 0
+    u2_has_genres = len(u2.genre_vector) > 0
+    both_have_genres = u1_has_genres and u2_has_genres
+
+    if both_have_genres:
+        genre_jaccard = _weighted_jaccard(u1.genre_vector, u2.genre_vector)
+        family_bonus = 0.0
+        for g1, w1 in u1.genre_vector.items():
+            if w1 > 0.1:
+                f1 = GENRE_TO_FAMILY.get(g1)
+                for g2, w2 in u2.genre_vector.items():
+                    if w2 > 0.1:
+                        f2 = GENRE_TO_FAMILY.get(g2)
+                        if f1 and f1 == f2 and f1 != g1 and f1 != g2:
+                            family_bonus = min(family_bonus + 0.03, 0.15)
+        genre_score = min(1.0, genre_jaccard + family_bonus)
+    else:
+        # One side has no genre data (e.g. YouTube liked videos fallback)
+        # Don't penalise — give neutral score and redistribute its weight
+        genre_score = 0.5
 
     # Stage 3 — Audio vibe
     audio_score = _cosine(u1.audio_vector, u2.audio_vector)
 
-    # Stage 4 — Social graph
+    # Stage 4 — Social graph (fuzzy artist matching via normalised names)
     set_a1 = set(u1.top_artists)
     set_a2 = set(u2.top_artists)
     common_artists_set = set_a1 & set_a2
@@ -316,8 +344,14 @@ def calculate_blend(
 
     social_score = 0.6 * artist_jaccard + 0.4 * track_jaccard
 
-    # Stage 5 — Final score
-    raw = 0.35 * genre_score + 0.35 * audio_score + 0.30 * social_score
+    # Stage 5 — Final score (adaptive weights when genre data is sparse)
+    if both_have_genres:
+        genre_w, audio_w, social_w = 0.35, 0.35, 0.30
+    else:
+        # Redistribute genre weight to audio and social
+        genre_w, audio_w, social_w = 0.15, 0.45, 0.40
+
+    raw = genre_w * genre_score + audio_w * audio_score + social_w * social_score
     diversity_penalty = abs(u1.listening_diversity - u2.listening_diversity) * 0.08
     mood_bonus = 0.04 if u1.dominant_mood == u2.dominant_mood else 0.0
     final_score = min(1.0, max(0.0, raw - diversity_penalty + mood_bonus))

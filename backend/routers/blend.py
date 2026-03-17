@@ -1,4 +1,5 @@
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
+import re
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 import httpx
@@ -168,8 +169,12 @@ def _yt_playlist_item_to_track(item: dict) -> dict:
     thumbs = snippet.get("thumbnails", {})
     thumb = (thumbs.get("medium") or thumbs.get("default") or {}).get("url", "")
     title = snippet.get("title", "")
-    # Strip common suffixes like "(Official Video)", "[HQ]" etc.
-    artist = snippet.get("videoOwnerChannelTitle", "").replace(" - Topic", "").strip()
+    # Strip channel suffixes so names match Spotify artist names
+    raw_channel = snippet.get("videoOwnerChannelTitle", "")
+    artist = re.sub(
+        r'\s*[-–]\s*(topic|vevo|official|music|records?|entertainment|tv|hd).*$',
+        '', raw_channel, flags=re.IGNORECASE,
+    ).strip()
     return {
         "id": vid,
         "title": title,
