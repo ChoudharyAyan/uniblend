@@ -1,8 +1,10 @@
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 import re
+import json
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 import httpx
+import anthropic
 import os
 import time
 import uuid
@@ -295,6 +297,60 @@ async def _fetch_yt_tracks(session_id: str) -> list:
     return list(raw.values())
 
 
+# ── LLM blend score validator ─────────────────────────────────────────────────
+
+async def _llm_validate_blend(algorithmic_score: float, blend_data: dict) -> dict:
+    """
+    Use Claude as a judge to sanity-check the algorithmic blend score.
+    Runs on every blend — catches cases like many mutual artists but very low score.
+    Returns {"validated_score": float, "reasoning": str, "adjusted": bool}
+    """
+    common_artists = [a["name"] for a in blend_data.get("top_common_artists", [])]
+    common_tracks = [
+        f"{t['artist']} - {t['title']}"
+        for t in blend_data.get("top_common_tracks", [])
+    ]
+    shared_genres = [g["genre"] for g in blend_data.get("shared_genres", [])]
+    stats = blend_data.get("stats", {})
+
+    prompt = f"""You are a music taste compatibility judge. An algorithm computed a blend score of {algorithmic_score:.1f}% for two music listeners.
+
+Evidence:
+- Mutual favourite artists ({len(common_artists)}): {common_artists[:10] or "none"}
+- Songs both love ({len(common_tracks)}): {common_tracks[:10] or "none"}
+- Shared genres: {shared_genres[:8] or "none"}
+- Spotify library size: {stats.get("total_spotify", 0)} tracks
+- YouTube Music library size: {stats.get("total_yt", 0)} tracks
+- Tracks matched across platforms: {stats.get("matched", 0)}
+
+Does {algorithmic_score:.1f}% make intuitive sense? Consider:
+- Many mutual artists or shared tracks → score should be higher (40%+)
+- Zero overlap at all → score should be low (under 20%)
+- The score reflects taste compatibility, not just raw overlap count
+
+Respond with JSON only (no markdown):
+{{"validated_score": <integer 0-100>, "reasoning": "<one concise sentence explaining the score>", "adjusted": <true|false>}}"""
+
+    client = anthropic.AsyncAnthropic()
+    response = await client.messages.create(
+        model="claude-haiku-4-5",
+        max_tokens=256,
+        messages=[{"role": "user", "content": prompt}],
+    )
+
+    text = response.content[0].text.strip()
+    # Strip markdown code fences if present
+    if text.startswith("```"):
+        text = text.split("```")[1]
+        if text.startswith("json"):
+            text = text[4:]
+        text = text.strip()
+
+    result = json.loads(text)
+    result["validated_score"] = float(result["validated_score"])
+    return result
+
+
 # ── Blend endpoint ────────────────────────────────────────────────────────────
 
 @router.get("/blend/preview")
@@ -378,6 +434,28 @@ async def _compute_blend(blend_id: str) -> None:
         # 5-stage blend algorithm
         blend_result, _u1, _u2 = calculate_blend(spotify_tracks, yt_tracks)
 
+        # LLM sanity check — validates / corrects the algorithmic score
+        llm_validated_score = blend_result.match_percentage
+        llm_reasoning = blend_result.vibe_summary
+        try:
+            llm_result = await _llm_validate_blend(
+                blend_result.match_percentage,
+                {
+                    "top_common_artists": blend_result.top_common_artists,
+                    "top_common_tracks": blend_result.top_common_tracks,
+                    "shared_genres": blend_result.shared_genres,
+                    "stats": {
+                        "total_spotify": len(spotify_tracks),
+                        "total_yt": len(yt_tracks),
+                        "matched": len(matches),
+                    },
+                },
+            )
+            llm_validated_score = llm_result["validated_score"]
+            llm_reasoning = llm_result["reasoning"]
+        except Exception:
+            pass  # Fall back to algorithmic score silently
+
         session["result"] = {
             "spotify_display_name": spotify_name,
             "ytmusic_display_name": yt_name,
@@ -392,9 +470,9 @@ async def _compute_blend(blend_id: str) -> None:
                 "yt_only": len(yt_only),
             },
             "blend_analysis": {
-                "match_percentage": blend_result.match_percentage,
+                "match_percentage": llm_validated_score,
                 "match_label": blend_result.match_label,
-                "vibe_summary": blend_result.vibe_summary,
+                "vibe_summary": llm_reasoning,
                 "dominant_user": blend_result.dominant_user,
                 "shared_genres": blend_result.shared_genres[:8],
                 "genre_breakdown": blend_result.genre_breakdown,

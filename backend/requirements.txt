@@ -10,3 +10,4 @@ pydantic
 requests
 itsdangerous
 supabase
+anthropic
