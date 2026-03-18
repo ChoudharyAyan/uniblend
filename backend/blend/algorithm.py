@@ -346,20 +346,22 @@ def calculate_blend(
     set_a2 = set(u2.top_artists)
     common_artists_set = set_a1 & set_a2
     all_artists_set = set_a1 | set_a2
-    # Use overlap coefficient (common / min) instead of Jaccard (common / union).
-    # Jaccard penalises users with large libraries — 6 shared artists out of 74 total
-    # gives only 8%, but 6 / min(30, 50) = 20%, which is far more intuitive.
+    # Overlap coefficient (common / min) + sqrt scaling.
+    # Raw overlap of 6/50 = 12% feels wrong when 6 artists is genuinely significant.
+    # sqrt(0.12) = 0.35 which better reflects the intuitive sense of shared taste.
     min_artists = min(len(set_a1), len(set_a2))
-    artist_overlap = len(common_artists_set) / min_artists if min_artists > 0 else 0
+    artist_overlap_raw = len(common_artists_set) / min_artists if min_artists > 0 else 0
+    artist_score = math.sqrt(artist_overlap_raw)
 
     set_t1 = set(u1.top_tracks)
     set_t2 = set(u2.top_tracks)
     common_tracks_set = set_t1 & set_t2
     all_tracks_set = set_t1 | set_t2
     min_tracks = min(len(set_t1), len(set_t2))
-    track_overlap = len(common_tracks_set) / min_tracks if min_tracks > 0 else 0
+    track_overlap_raw = len(common_tracks_set) / min_tracks if min_tracks > 0 else 0
+    track_score = math.sqrt(track_overlap_raw)
 
-    social_score = 0.6 * artist_overlap + 0.4 * track_overlap
+    social_score = 0.6 * artist_score + 0.4 * track_score
 
     # Stage 5 — Adaptive weights based on data availability
     # Only include a component's weight when that component has real signal

@@ -1,7 +1,10 @@
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 import re
 import json
+import logging
 import spotipy
+
+logger = logging.getLogger(__name__)
 from spotipy.oauth2 import SpotifyOAuth
 import httpx
 import anthropic
@@ -453,8 +456,9 @@ async def _compute_blend(blend_id: str) -> None:
             )
             llm_validated_score = llm_result["validated_score"]
             llm_reasoning = llm_result["reasoning"]
-        except Exception:
-            pass  # Fall back to algorithmic score silently
+            logger.info(f"LLM blend validation: algo={blend_result.match_percentage}% → llm={llm_validated_score}% (adjusted={llm_result.get('adjusted')})")
+        except Exception as e:
+            logger.error(f"LLM blend validation failed: {e}", exc_info=True)
 
         session["result"] = {
             "spotify_display_name": spotify_name,
