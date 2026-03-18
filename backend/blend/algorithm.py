@@ -10,10 +10,13 @@ Stages:
 """
 from __future__ import annotations
 
+import logging
 import math
 import re
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 # ── Genre family mapping ───────────────────────────────────────────────────────
 
@@ -266,7 +269,7 @@ def build_user_profile(tracks: List[Dict]) -> UserProfile:
         else GENRE_AUDIO_DEFAULTS["default"]
     )
 
-    # --- Top artists (deduplicated, up to 50) ---
+    # --- Top artists (deduplicated, up to 200) ---
     seen: Dict[str, bool] = {}
     top_artists: List[str] = []
     for track in tracks:
@@ -275,12 +278,12 @@ def build_user_profile(tracks: List[Dict]) -> UserProfile:
         if a and a not in seen:
             seen[a] = True
             top_artists.append(a)
-        if len(top_artists) >= 50:
+        if len(top_artists) >= 200:
             break
 
-    # --- Top tracks (up to 100) ---
+    # --- Top tracks (up to 200) ---
     top_tracks: List[str] = []
-    for track in tracks[:100]:
+    for track in tracks[:200]:
         a = _norm(_clean_artist_name(track.get("artist", "")))
         t = _norm(track.get("title", ""))
         # Strip "(Official Video)", "[HD]" etc. from title
@@ -362,6 +365,13 @@ def calculate_blend(
     track_score = math.sqrt(track_overlap_raw)
 
     social_score = 0.6 * artist_score + 0.4 * track_score
+
+    logger.info(
+        f"Blend calc: artists u1={len(set_a1)} u2={len(set_a2)} common={len(common_artists_set)} "
+        f"overlap_raw={artist_overlap_raw:.3f} artist_score={artist_score:.3f} | "
+        f"tracks u1={len(set_t1)} u2={len(set_t2)} common={len(common_tracks_set)} "
+        f"track_score={track_score:.3f} | social={social_score:.3f}"
+    )
 
     # Stage 5 — Adaptive weights based on data availability
     # Only include a component's weight when that component has real signal

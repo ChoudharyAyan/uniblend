@@ -69,7 +69,7 @@ async def _fetch_spotify_tracks(session_id: str) -> list:
     Build a taste profile from:
     - Top tracks across short / medium / long term  (what you actually listen to)
     - Recently played                               (recent listening behaviour)
-    No liked songs — likes ≠ listening habits.
+    - Saved/liked songs (up to 200)                 (explicit likes — aligns with YT Music liked songs)
     """
     sp = _get_spotify(session_id)
     raw: dict = {}  # id -> track, de-duplicate
@@ -90,6 +90,24 @@ async def _fetch_spotify_tracks(session_id: str) -> list:
                 raw[t["id"]] = t
     except Exception:
         pass  # scope may not cover this on existing tokens
+
+    # Saved/liked songs (up to 200) — mirrors YouTube Music's liked songs source
+    try:
+        offset = 0
+        while offset < 200:
+            result = sp.current_user_saved_tracks(limit=50, offset=offset)
+            items = result.get("items", [])
+            if not items:
+                break
+            for item in items:
+                t = item.get("track")
+                if t and t.get("id") and t["id"] not in raw:
+                    raw[t["id"]] = t
+            offset += 50
+            if len(items) < 50:
+                break
+    except Exception:
+        pass
 
     return [_normalise_spotify_track(t) for t in raw.values()]
 
